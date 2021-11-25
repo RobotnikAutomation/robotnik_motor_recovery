@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<launch>
+
+	<arg name="desired_freq" default="20.0" />
+	<arg name="base_hw_topic" default="robotnik_base_hw/status" />                    <!-- Topic of the base hardware where activedriveflags are published -->
+	<arg name="enable_base_control_service" default="robotnik_base_control/enable" /> <!-- Service of the robotnik controller for stop motors -->
+	<arg name="recovery_cmd_vel_topic" default="motor_recovery/cmd_vel" />            <!-- Cmd vel output to move the motors in the recovery routine -->
+	<arg name="protection_motor_time" default="15" />                                 <!-- Time which motors will stop before start the recovery routine -->
+	<arg name="recovery_motor_time" default="1.2" />                                    <!--  Time which motors will move forward before on the recovery routine -->
+
+	<node name="motor_recovery" pkg="robotnik_motor_recovery" type="motor_recovery_node.py" output="screen" respawn="true">
+		<param name="desired_freq" value="$(arg desired_freq)"/>
+		<param name="base_hw_topic" value="$(arg base_hw_topic)" />
+		<param name="enable_base_control_service" value="$(arg enable_base_control_service)" /> 
+		<param name="recovery_cmd_vel_topic" value="$(arg recovery_cmd_vel_topic)" /> 
+		<param name="protection_motor_time" value="$(arg protection_motor_time)" /> 
+		<param name="recovery_motor_time" value="$(arg recovery_motor_time)" /> 
+	</node>
+
+
+</launch>
