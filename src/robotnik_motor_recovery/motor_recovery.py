@@ -34,8 +34,10 @@ class MotorRecovery(RComponent):
         self.base_hw_topic = rospy.get_param('~base_hw_topic', 'robotnik_base_hw/status')
         self.enable_base_control_service = rospy.get_param('~enable_base_control_service', 'robotnik_base_control/enable')
         self.recovery_cmd_vel_topic = rospy.get_param('~recovery_cmd_vel_topic', 'motor_recovery/cmd_vel')
+        self.disgnostic_motor_time = rospy.get_param('~diagnostic_motor_time', 0.1)
         self.protection_motor_time = rospy.get_param('~protection_motor_time', 15)
-        self.recovery_motor_time = rospy.get_param('~recovery_motor_time', 2)
+        self.recovery_motor_vel = rospy.get_param('~recovery_motor_vel', 0.3)
+        self.recovery_motor_time = rospy.get_param('~recovery_motor_time', 1.2)
 
     def ros_setup(self):
         """Creates and inits ROS components"""
@@ -63,6 +65,9 @@ class MotorRecovery(RComponent):
 
         self.last_motor_disabled_time =  rospy.Time.now()
         self.last_recovery_time =  rospy.Time.now()
+        self.last_diagnostic_time = rospy.Time.now()
+
+        self.trigger_diagnostic_time = True
 
         return 0
 
@@ -138,31 +143,36 @@ class MotorRecovery(RComponent):
 
                 motor_flags = motor.activedriveflags
 
-                # if 'ZERO_VELOCITY' in motor_flags:
-                #     self.zero_velocitry_flag = True
-                #     diagnostic = False
-
                 if 'VELOCITY_FOLLOWING_ERROR' in motor_flags:
                     velocity_following_error_flag = True
                     rospy.logwarn("Detected VELOCITY_FOLLOWING_ERROR on motor [" + str(index) + "]")
 
                 if 'CONTINUOUS_CURRENT' in motor_flags:
                     continuous_current_flag = True
-                    rospy.logwarn("Detected CONTINUOUS_CURRENT on motor [" + str(index) + "]")
+                    #rospy.logwarn("Detected CONTINUOUS_CURRENT on motor [" + str(index) + "]")
 
                 if 'CURRENT_LIMITING' in motor_flags:
                     current_limiting_flag = True
                     rospy.logwarn("Detected CURRENT_LIMITING on motor [" + str(index) + "]")
 
                 index = index + 1
-            
+
             self.diagnostic_step = 1
 
         if self.diagnostic_step == 1:
 
             if velocity_following_error_flag == True and  current_limiting_flag == True:
-                diagnostic = False
-            
+
+                if self.trigger_diagnostic_time == True:
+                    rospy.logwarn("Diagnostic debouce for " + str(self.disgnostic_motor_time) + " seconds")
+                    self.last_diagnostic_time = rospy.Time.now()
+                    self.trigger_diagnostic_time = False
+
+                #rospy.loginfo((rospy.Time.now()-self.last_diagnostic_time).to_sec())
+                if rospy.Time.now() - self.last_diagnostic_time > rospy.Duration().from_sec(self.disgnostic_motor_time):
+                    diagnostic = False
+                    self.trigger_diagnostic_time = True
+
             self.diagnostic_step = 0
 
 
@@ -208,7 +218,7 @@ class MotorRecovery(RComponent):
         if self.recovery_step  == 1:
             
             twist_command = Twist()
-            twist_command.linear.x = 0.3
+            twist_command.linear.x = self.recovery_motor_vel
 
             # Move forward for self.recovery_motor_time seconds
             if  rospy.Time.now() - self.last_recovery_time <= rospy.Duration().from_sec(self.recovery_motor_time):
